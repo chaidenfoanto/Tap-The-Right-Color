@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tap the Color — Pilih Warna yang Benar</title>
+<style>
+  :root{
+    --bg:#f3f7f9;
+    --card:#ffffff;
+    --accent:#2b6cb0;
+    --muted:#6b7280;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg,#eaf2fb 0%, var(--bg) 100%);
+    color:#111827;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:24px;
+  }
+
+  .app{
+    width:100%;
+    max-width:520px;
+    background:var(--card);
+    border-radius:14px;
+    box-shadow:0 8px 30px rgba(15,23,42,0.08);
+    padding:20px;
+    position:relative;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom:12px;
+  }
+  h1{
+    margin:0;
+    font-size:20px;
+    letter-spacing:0.6px;
+  }
+  p.lead{
+    margin:8px 0 16px;
+    color:var(--muted);
+    font-size:14px;
+  }
+
+  /* screens */
+  .screen{display:none}
+  .screen.active{display:block}
+
+  .center{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .big-word{
+    font-weight:700;
+    font-size:56px;
+    user-select:none;
+    margin:6px 0 0;
+    text-transform:uppercase;
+    letter-spacing:2px;
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-top:16px;
+  }
+
+  .color-btn{
+    width:110px;
+    height:46px;
+    border-radius:8px;
+    border:2px solid rgba(0,0,0,0.06);
+    cursor:pointer;
+    font-weight:700;
+    color:white;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 4px 12px rgba(2,6,23,0.06);
+    transition:transform .08s ease, opacity .12s;
+    pointer-events:auto; /* will toggle via JS */
+  }
+  .color-btn.disabled{ opacity:0.6; pointer-events:none; transform:none; }
+
+  .meta{
+    display:flex;
+    gap:12px;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:14px;
+  }
+  .meta .left{
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+  .badge{
+    background:#eef2ff;
+    color:var(--accent);
+    padding:6px 10px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:14px;
+  }
+
+  .timerbar{
+    height:10px;
+    background:#e6eef8;
+    border-radius:999px;
+    overflow:hidden;
+    flex:1;
+    margin-left:12px;
+  }
+  .timerbar > i{
+    display:block;
+    height:100%;
+    width:100%;
+    background:linear-gradient(90deg,#2b6cb0,#60a5fa);
+    transform-origin:left center;
+    transform:scaleX(1);
+  }
+
+  .start-btn, .primary-btn, .ghost-btn{
+    background:var(--accent);
+    color:white;
+    padding:10px 14px;
+    border-radius:10px;
+    border:none;
+    cursor:pointer;
+    font-weight:700;
+    box-shadow:0 8px 20px rgba(43,108,176,0.12);
+  }
+  .ghost-btn{
+    background:transparent;
+    color:var(--muted);
+    box-shadow:none;
+    border:1px solid #e5e7eb;
+  }
+
+  .footer{
+    margin-top:14px;
+    display:flex;
+    justify-content:space-between;
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  /* result */
+  .result-score{
+    font-size:40px;
+    font-weight:800;
+  }
+
+  /* toast (notifikasi kalah) */
+  .toast{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    top:18px;
+    background:rgba(0,0,0,0.8);
+    color:white;
+    padding:10px 16px;
+    border-radius:10px;
+    font-weight:700;
+    display:none;
+    z-index:30;
+  }
+  .toast.show{ display:block; animation:pop .36s ease; }
+  @keyframes pop{ from { transform:translateX(-50%) scale(.9); opacity:0 } to { transform:translateX(-50%) scale(1); opacity:1 } }
+
+  @media (max-width:420px){
+    .color-btn{ width:48%; height:46px; font-size:14px; }
+    .big-word{ font-size:44px; }
+  }
+
+</style>
+</head>
+<body>
+  <div class="app" role="application" aria-labelledby="title">
+    <div id="toast" class="toast" role="status" aria-live="polite">Game Over</div>
+
+    <header>
+      <h1 id="title">Tap the Color</h1>
+      <p class="lead">Pilih warna yang sesuai dengan <strong>WARNA TEKS</strong> — bukan kata yang tertulis.</p>
+    </header>
+
+    <!-- START SCREEN -->
+    <section id="start-screen" class="screen active center" aria-hidden="false">
+      <div style="text-align:center;max-width:420px">
+        <p style="margin:0 0 8px;color:var(--muted)">Instruksi singkat:</p>
+        <ul style="text-align:left;color:var(--muted);margin:0 0 14px;padding-left:18px">
+          <li>Perhatikan warna dari kata yang muncul.</li>
+          <li>Klik tombol warna yang cocok (bukan arti kata).</li>
+          <li>Waktu akan berkurang tiap beberapa skor — semakin menantang.</li>
+        </ul>
+      </div>
+
+      <button id="start-btn" class="start-btn">Mulai Game</button>
+
+      <div style="margin-top:16px;color:var(--muted);text-align:center">
+        Highscore: <span id="hs-start">0</span>
+      </div>
+    </section>
+
+    <!-- GAME SCREEN -->
+    <section id="game-screen" class="screen center" aria-hidden="true">
+      <div style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <div class="left meta">
+          <div class="badge">Score: <span id="score">0</span></div>
+        </div>
+        <div class="meta" style="flex:1;margin-left:12px">
+          <div style="font-size:13px;color:var(--muted)">Waktu tersisa</div>
+          <div class="timerbar" aria-hidden="true"><i id="timer-fill"></i></div>
+        </div>
+      </div>
+
+      <div style="height:18px"></div>
+
+      <div class="center" style="gap:6px;width:100%">
+        <div style="font-size:14px;color:var(--muted)">Klik warna dari teks berikut:</div>
+        <div id="word" class="big-word" aria-live="polite">READY</div>
+
+        <div class="controls" id="buttons-area">
+          <!-- tombol warna ditempatkan secara dinamis -->
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+        <button id="pause-btn" class="ghost-btn">Pause</button>
+        <button id="quit-btn" class="ghost-btn">Quit</button>
+      </div>
+    </section>
+
+    <!-- RESULT SCREEN -->
+    <section id="result-screen" class="screen center" aria-hidden="true">
+      <div style="text-align:center">
+        <div style="color:var(--muted)">Game Over</div>
+        <div class="result-score" id="final-score">0</div>
+        <div style="color:var(--muted);margin-top:6px">Highscore: <strong id="hs-result">0</strong></div>
+      </div>
+
+      <div style="height:8px"></div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
+        <button id="retry-btn" class="primary-btn">Main Lagi</button>
+        <button id="back-btn" class="ghost-btn">Kembali</button>
+      </div>
+    </section>
+
+    <div class="footer">
+      <div>Tap the Color - Group 1</div>
+      <div id="level-display">Level: 1</div>
+    </div>
+  </div>
+
+<script>
+/*
+  Versi perbaikan:
+  - Pastikan kata != warna (agar tidak selalu sama).
+  - Tambahkan isReady untuk mencegah klik sebelum soal siap.
+  - Toast notifikasi saat kalah.
+*/
+
+// Config dasar
+const BASE_TIME = 3000;       // ms untuk level awal
+const MIN_TIME = 700;         // ms minimum
+const TIME_DECREASE_PER_LEVEL = 250; // pengurangan waktu tiap level
+const SCORE_TO_LEVEL_UP = 5;  // setiap 5 poin naik level
+const COLORS_LEVELS = [
+  [
+    {name:'Red', hex:'#ef4444'},
+    {name:'Blue', hex:'#3b82f6'},
+    {name:'Green', hex:'#10b981'},
+    {name:'Yellow', hex:'#f59e0b'}
+  ],
+  [
+    {name:'Red', hex:'#ef4444'},
+    {name:'Maroon', hex:'#8b0000'},
+    {name:'Blue', hex:'#3b82f6'},
+    {name:'Indigo', hex:'#4f46e5'},
+    {name:'Green', hex:'#10b981'},
+    {name:'Teal', hex:'#0ea5a4'},
+    {name:'Yellow', hex:'#f59e0b'},
+    {name:'Orange', hex:'#fb923c'}
+  ],
+  [
+    {name:'Red', hex:'#ef4444'},
+    {name:'Maroon', hex:'#8b0000'},
+    {name:'Pink', hex:'#f472b6'},
+    {name:'Blue', hex:'#3b82f6'},
+    {name:'Indigo', hex:'#4f46e5'},
+    {name:'Purple', hex:'#7c3aed'},
+    {name:'Green', hex:'#10b981'},
+    {name:'Teal', hex:'#0ea5a4'},
+    {name:'Lime', hex:'#84cc16'},
+    {name:'Yellow', hex:'#f59e0b'},
+    {name:'Orange', hex:'#fb923c'},
+    {name:'Amber', hex:'#f59e0b'}
+  ]
+];
+
+let scoreEl = document.getElementById('score');
+let hsStart = document.getElementById('hs-start');
+let hsResult = document.getElementById('hs-result');
+let finalScore = document.getElementById('final-score');
+let wordEl = document.getElementById('word');
+let buttonsArea = document.getElementById('buttons-area');
+let timerFill = document.getElementById('timer-fill');
+let levelDisplay = document.getElementById('level-display');
+let toast = document.getElementById('toast');
+
+let startBtn = document.getElementById('start-btn');
+let pauseBtn = document.getElementById('pause-btn');
+let quitBtn = document.getElementById('quit-btn');
+let retryBtn = document.getElementById('retry-btn');
+let backBtn = document.getElementById('back-btn');
+
+let startScreen = document.getElementById('start-screen');
+let gameScreen = document.getElementById('game-screen');
+let resultScreen = document.getElementById('result-screen');
+
+let score = 0;
+let currentLevel = 1;
+let currentTimeLimit = BASE_TIME;
+let timerId = null;
+let timerTimeout;
+let isPaused = false;
+let isReady = false; // <-- flag baru: hanya terima klik ketika ready
+let currentDisplayedColor = null;
+let currentWordText = '';
+let highscore = Number(localStorage.getItem('tapcolor_highscore') || 0);
+
+hsStart.textContent = highscore;
+hsResult.textContent = highscore;
+
+// util random
+function randInt(n){ return Math.floor(Math.random()*n); }
+function choose(arr){ return arr[randInt(arr.length)]; }
+
+// tampilkan screen tertentu
+function showScreen(screen){
+  [startScreen, gameScreen, resultScreen].forEach(s=>s.classList.remove('active'));
+  screen.classList.add('active');
+  startScreen.setAttribute('aria-hidden', startScreen!==screen);
+  gameScreen.setAttribute('aria-hidden', gameScreen!==screen);
+  resultScreen.setAttribute('aria-hidden', resultScreen!==screen);
+}
+
+// hitung level berdasarkan score
+function updateLevel(){
+  currentLevel = Math.floor(score / SCORE_TO_LEVEL_UP) + 1;
+  levelDisplay.textContent = 'Level: ' + currentLevel;
+  let decrease = (currentLevel - 1) * TIME_DECREASE_PER_LEVEL;
+  currentTimeLimit = Math.max(MIN_TIME, BASE_TIME - decrease);
+}
+
+// dapatkan daftar warna sesuai level
+function getColorsForCurrentLevel(){
+  if(currentLevel <= 2) return COLORS_LEVELS[0];
+  if(currentLevel <= 4) return COLORS_LEVELS[1];
+  return COLORS_LEVELS[2];
+}
+
+// buat tombol warna
+function renderButtons(){
+  buttonsArea.innerHTML = '';
+  const colors = getColorsForCurrentLevel();
+  let pool = colors.slice();
+  for(let i=pool.length-1;i>0;i--){ let j=randInt(i+1); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  let choices = pool.slice(0, Math.min(6,pool.length));
+  choices.forEach((c, idx)=>{
+    let btn = document.createElement('button');
+    btn.className = 'color-btn disabled'; // awalnya disabled sampai ready
+    btn.style.background = c.hex;
+    btn.textContent = c.name.toUpperCase();
+    btn.setAttribute('data-color-name', c.name);
+    btn.setAttribute('aria-label', 'Tombol warna '+c.name);
+    btn.addEventListener('click', onColorClick);
+    buttonsArea.appendChild(btn);
+  });
+}
+
+// generate satu soal baru
+function nextRound(){
+  isReady = false; // block klik sampai selesai set-up
+  updateLevel();
+  renderButtons();
+
+  const colors = getColorsForCurrentLevel();
+  // PILIH warna teks (displayed color) dan pastikan kata (word text) != nama warna yang sama
+  // loop until different to avoid accidental same word+color
+  let attempts = 0;
+  do {
+    currentDisplayedColor = choose(colors);
+    const poolNames = colors.map(c=>c.name);
+    currentWordText = poolNames[randInt(poolNames.length)];
+    attempts++;
+    // fail-safe: jika sudah banyak percobaan (sangat improbable), break dan terima sama
+    if(attempts > 12) break;
+  } while (currentWordText === currentDisplayedColor.name);
+
+  // render
+  wordEl.textContent = currentWordText;
+  wordEl.style.color = currentDisplayedColor.hex;
+
+  // enable buttons (visual + pointer events)
+  Array.from(buttonsArea.children).forEach(btn=>{
+    btn.classList.remove('disabled');
+  });
+
+  // set siap menerima klik
+  isReady = true;
+
+  // mulai timer visual + timeout
+  startTimer(currentTimeLimit);
+}
+
+// timer handling
+let timerStartTs = 0;
+function startTimer(ms){
+  clearTimer();
+  const start = performance.now();
+  timerFill.style.transform = 'scaleX(1)';
+  let last = start;
+  timerId = requestAnimationFrame(function tick(now){
+    if(isPaused){
+      last = now;
+      timerId = requestAnimationFrame(tick);
+      return;
+    }
+    const elapsed = now - start;
+    const ratio = Math.max(0, 1 - elapsed / ms);
+    timerFill.style.transform = 'scaleX(' + ratio + ')';
+    if(elapsed >= ms){
+      clearTimer();
+      // waktu habis -> lost with toast
+      showToast('Waktu habis! Kamu kalah.');
+      // Delay kecil supaya pemain lihat toast, lalu endGame
+      setTimeout(()=> endGame(), 700);
+      return;
+    }
+    timerId = requestAnimationFrame(tick);
+  });
+
+  timerTimeout = setTimeout(()=>{
+    if(timerId){ clearTimer(); showToast('Waktu habis! Kamu kalah.'); setTimeout(()=> endGame(), 700); }
+  }, ms + 30);
+}
+
+function clearTimer(){
+  if(timerId){ cancelAnimationFrame(timerId); timerId = null; }
+  if(typeof timerTimeout !== 'undefined'){ clearTimeout(timerTimeout); timerTimeout = undefined; }
+}
+
+// event saat klik warna
+function onColorClick(e){
+  if(isPaused) return;
+  if(!isReady) return; // jika belum siap, abaikan klik
+  const chosenName = e.currentTarget.getAttribute('data-color-name');
+  if(!currentDisplayedColor){ return; } // safety
+  // disable klik cepat setelah klik pertama agar tidak double-trigger
+  isReady = false;
+  Array.from(buttonsArea.children).forEach(btn=> btn.classList.add('disabled'));
+
+  if(chosenName === currentDisplayedColor.name){
+    // benar
+    score++;
+    scoreEl.textContent = score;
+    e.currentTarget.style.transform = 'scale(0.98)';
+    setTimeout(()=> e.currentTarget.style.transform = '', 90);
+    // next round
+    // sedikit delay supaya animasi terasa
+    setTimeout(()=> nextRound(), 120);
+  } else {
+    // salah -> show toast & end game shortly
+    showToast('Salah! Warna yang benar: ' + currentDisplayedColor.name);
+    setTimeout(()=> endGame(), 700);
+  }
+}
+
+// start game
+function startGame(){
+  score = 0;
+  scoreEl.textContent = score;
+  currentLevel = 1;
+  currentTimeLimit = BASE_TIME;
+  isPaused = false;
+  isReady = false;
+  showScreen(gameScreen);
+  nextRound();
+}
+
+// end game
+function endGame(){
+  clearTimer();
+  isReady = false;
+  // tampilkan hasil
+  finalScore.textContent = score;
+  // update highscore
+  if(score > highscore){
+    highscore = score;
+    localStorage.setItem('tapcolor_highscore', String(highscore));
+    hsStart.textContent = highscore;
+    hsResult.textContent = highscore;
+  } else {
+    hsResult.textContent = highscore;
+  }
+  showScreen(resultScreen);
+  // pastikan semua tombol disabled
+  Array.from(buttonsArea.children).forEach(btn=> btn.classList.add('disabled'));
+}
+
+// pause / resume
+function togglePause(){
+  isPaused = !isPaused;
+  pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+}
+
+// quit to start
+function quitToStart(){
+  clearTimer();
+  isReady = false;
+  showScreen(startScreen);
+}
+
+// toast helper
+let toastTimeout;
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if(toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=> {
+    toast.classList.remove('show');
+  }, 1400);
+}
+
+// handlers
+startBtn.addEventListener('click', ()=>{ startGame(); });
+retryBtn.addEventListener('click', ()=>{ startGame(); });
+backBtn.addEventListener('click', ()=>{ quitToStart(); });
+pauseBtn.addEventListener('click', ()=>{ togglePause(); });
+quitBtn.addEventListener('click', ()=>{ endGame(); });
+
+// keyboard support: 1..6 keys to choose buttons
+window.addEventListener('keydown', (e)=>{
+  if(!gameScreen.classList.contains('active')) return;
+  if(e.key>='1' && e.key<='6'){
+    const idx = Number(e.key) - 1;
+    const btn = buttonsArea.children[idx];
+    if(btn) btn.click();
+  }
+  if(e.key === 'Escape'){ endGame(); }
+  if(e.key === 'p' || e.key === 'P'){ togglePause(); }
+});
+
+// initial render
+(function init(){
+  hsStart.textContent = highscore;
+  hsResult.textContent = highscore;
+  scoreEl.textContent = 0;
+  levelDisplay.textContent = 'Level: 1';
+  renderButtons();
+})();
+</script>
+</body>
+</html>
